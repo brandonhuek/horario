@@ -1,14 +1,18 @@
 import requests
-import os
-import csv
+import streamlit as st
 from datetime import datetime
+import csv
 
 def send_product_to_telegram(product):
-    bot_token = os.environ.get("TELEGRAM_BOT_TOKEN")
-    chat_id = os.environ.get("TELEGRAM_CHAT_ID")
-    message = f"🌿 <b>{product['name']}</b>\n💰 Precio: {product['price']} €\n\n<a href='{product['permalink']}'>🛒 Comprar ahora</a>"
+    bot_token = st.secrets["TELEGRAM_TOKEN"]
+    chat_id = st.secrets["TELEGRAM_GROUP"]
 
-    image_url = product['images'][0]['src'] if product['images'] else None
+    name = product.get("name", "Producto sin nombre")
+    price = product.get("price", "Precio no disponible")
+    link = product.get("permalink", "#")
+    image_url = product.get("images", [{}])[0].get("src", "")
+
+    message = f"🌿 <b>{name}</b>\n💰 Precio: {price} €\n\n<a href='{link}'>🛒 Comprar ahora</a>"
 
     if image_url:
         url = f"https://api.telegram.org/bot{bot_token}/sendPhoto"
@@ -26,10 +30,15 @@ def send_product_to_telegram(product):
             "parse_mode": "HTML"
         }
 
-    requests.post(url, data=data)
+    response = requests.post(url, data=data)
+
+    if response.status_code != 200:
+        st.error(f"❌ Error al enviar a Telegram: {response.status_code} - {response.text}")
+    else:
+        st.success(f"✅ Producto enviado a Telegram: {name}")
 
 def log_publication(product, method):
     with open("historial.csv", "a", newline="", encoding="utf-8") as f:
         writer = csv.writer(f)
         writer.writerow([datetime.now(), product['name'], method, product['permalink']])
-        
+
